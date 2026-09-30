@@ -1,0 +1,32 @@
+{
+	"schemaVersion": 1,
+	"id": "atlasmap",
+	"version": "${version}",
+	"name": "AtlasMap",
+	"description": "A minimap + world map mod with administrative region drawing, built on Fabric.",
+	"authors": [
+		"You"
+	],
+	"contact": {
+		"homepage": "",
+		"sources": ""
+	},
+	"license": "CC0-1.0",
+	"icon": "assets/atlasmap/icon.png",
+	"environment": "client",
+	"entrypoints": {
+		"main": [
+			"dev.atlasmap.AtlasMap"
+		],
+		"client": [
+			"dev.atlasmap.client.AtlasMapClient"
+		]
+	},
+	"mixins": [],
+	"depends": {
+		"fabricloader": ">=0.19.0",
+		"minecraft": "~26.2",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}

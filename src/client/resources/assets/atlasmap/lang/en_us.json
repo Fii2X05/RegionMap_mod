@@ -1,0 +1,9 @@
+{
+	"key.atlasmap.toggle_minimap": "Toggle Minimap",
+	"key.atlasmap.zoom_in": "Minimap Zoom In",
+	"key.atlasmap.zoom_out": "Minimap Zoom Out",
+	"key.atlasmap.open_worldmap": "Open World Map (WIP)",
+	"key.atlasmap.open_waypoints": "Open Waypoints",
+	"key.atlasmap.open_regions": "Open Region Editor",
+	"key.category.atlasmap.general": "AtlasMap"
+}
