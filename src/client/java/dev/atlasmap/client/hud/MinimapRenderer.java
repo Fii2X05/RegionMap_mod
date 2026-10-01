@@ -9,7 +9,7 @@ import dev.atlasmap.map.ChunkMapData;
 import dev.atlasmap.map.DimensionMapCache;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.texture.DynamicTexture;
-import net.minecraft.core.BlockPos;
+import net.minecraft.util.Mth;
 import net.minecraft.resources.Identifier;
 
 /**
@@ -28,7 +28,9 @@ import net.minecraft.resources.Identifier;
  */
 public final class MinimapRenderer {
 
-	private static final int WORKING_SIZE = 256;
+	// 512 (bukan 256): saat peta berotasi, sudut kotak minimap menjangkau sampai span*0.71 dari
+	// pusat. Dengan 256, zoom-out jauh membuat sudutnya kosong/gelap ketika diputar.
+	private static final int WORKING_SIZE = 512;
 	private static final Identifier TEXTURE_ID = Identifier.fromNamespaceAndPath(AtlasMap.MOD_ID, "minimap_dynamic");
 	private static final int UNSCANNED_COLOR = Pixels.toAbgr(0xFF141414);
 
@@ -53,7 +55,25 @@ public final class MinimapRenderer {
 		return WORKING_SIZE;
 	}
 
-	public void tick(MinimapConfig config) {
+	/** Blok yang berada di piksel tengah tekstur yang terakhir dibangun. */
+	public int centerBlockX() {
+		return lastCenterBlockX;
+	}
+
+	public int centerBlockZ() {
+		return lastCenterBlockZ;
+	}
+
+	/** False sebelum tekstur pertama selesai dibangun (mencegah blit tekstur yang belum ada). */
+	public boolean isReady() {
+		return image != null && lastCenterBlockX != Integer.MIN_VALUE;
+	}
+
+	/**
+	 * @param playerX posisi X pemain yang sudah diinterpolasi (partialTick)
+	 * @param playerZ posisi Z pemain yang sudah diinterpolasi (partialTick)
+	 */
+	public void tick(MinimapConfig config, double playerX, double playerZ) {
 		Minecraft client = Minecraft.getInstance();
 		if (client.level == null || client.player == null || !MapManager.isOpen()) {
 			return;
@@ -63,9 +83,8 @@ public final class MinimapRenderer {
 		}
 
 		long now = System.currentTimeMillis();
-		BlockPos playerPos = client.player.blockPosition();
-		int centerX = playerPos.getX();
-		int centerZ = playerPos.getZ();
+		int centerX = Mth.floor(playerX);
+		int centerZ = Mth.floor(playerZ);
 		boolean moved = centerX != lastCenterBlockX || centerZ != lastCenterBlockZ;
 
 		if (lastRefreshMs >= 0 && (now - lastRefreshMs) < config.refreshIntervalMs && !moved) {

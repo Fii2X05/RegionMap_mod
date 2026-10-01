@@ -28,6 +28,13 @@ public final class MinimapConfig {
 	public float opacity = 1.0f;
 	public boolean showRegionOverlay = true;
 	public boolean showWaypoints = true;
+
+	// Radar entity (mob & pemain lain). Config lama tanpa kolom ini otomatis memakai nilai default.
+	public boolean showHostileMobs = true;
+	/** Mencakup mob pasif, netral (serigala, enderman, ...), dan hewan air. */
+	public boolean showPassiveMobs = true;
+	public boolean showPlayers = true;
+	public boolean showPlayerNames = false;
 	public int refreshIntervalMs = 250;
 	public int marginX = 6;
 	public int marginY = 6;

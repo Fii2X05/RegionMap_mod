@@ -1,6 +1,9 @@
 package dev.atlasmap.client.gui;
 
+import dev.atlasmap.client.AtlasMapClient;
 import dev.atlasmap.client.ScreenUtil;
+import dev.atlasmap.client.hud.EntityRadarRenderer;
+import dev.atlasmap.client.hud.RadarView;
 import dev.atlasmap.client.map.MapManager;
 import dev.atlasmap.client.map.MapTilePool;
 import dev.atlasmap.client.region.ClientRegionState;
@@ -17,6 +20,7 @@ import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.renderer.RenderPipelines;
 import net.minecraft.network.chat.Component;
+import net.minecraft.util.Mth;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -275,7 +279,10 @@ public final class WorldMapScreen extends Screen {
 			renderTiles(graphics, cache);
 			renderRegionLines(graphics, cache);
 			renderWaypoints(graphics);
-			renderPlayerMarker(graphics);
+			// Peta penuh selalu north-up: tanpa rotasi, 1 blok = 1/blocksPerPixel piksel.
+			RadarView view = RadarView.unrotated(this.width / 2.0, this.height / 2.0, centerX, centerZ, 1.0 / blocksPerPixel);
+			renderEntities(graphics, view, delta);
+			renderPlayerMarker(graphics, view, delta);
 		}
 
 		renderHeader(graphics, mouseX, mouseY);
@@ -384,16 +391,32 @@ public final class WorldMapScreen extends Screen {
 		}
 	}
 
-	private void renderPlayerMarker(GuiGraphicsExtractor graphics) {
+	private boolean viewingCurrentDimension() {
 		Minecraft client = Minecraft.getInstance();
-		if (client.player == null || client.level == null
-				|| !client.level.dimension().identifier().toString().equals(dimensionId)) {
+		return client.player != null && client.level != null
+				&& client.level.dimension().identifier().toString().equals(dimensionId);
+	}
+
+	/** Mob & pemain lain. Hanya yang sedang dimuat client, dan hanya jika peta menampilkan dimensi yang sama. */
+	private void renderEntities(GuiGraphicsExtractor graphics, RadarView view, float partialTick) {
+		if (!viewingCurrentDimension()) {
 			return;
 		}
-		int sx = (int) worldToScreenX(client.player.getX());
-		int sy = (int) worldToScreenZ(client.player.getZ());
-		graphics.outline(sx - 4, sy - 4, 8, 8, 0xFF000000);
-		graphics.fill(sx - 3, sy - 3, sx + 3, sy + 3, 0xFFFF5555);
+		Minecraft client = Minecraft.getInstance();
+		// Setengah diagonal layar (dalam blok) menutupi seluruh area yang terlihat.
+		double range = Math.hypot(this.width, this.height) / 2.0 * blocksPerPixel + 16.0;
+		EntityRadarRenderer.render(graphics, client, AtlasMapClient.config(), view, partialTick, range,
+				this.width / 2.0, this.height / 2.0, true);
+	}
+
+	private void renderPlayerMarker(GuiGraphicsExtractor graphics, RadarView view, float partialTick) {
+		if (!viewingCurrentDimension()) {
+			return;
+		}
+		Minecraft client = Minecraft.getInstance();
+		double px = Mth.lerp(partialTick, client.player.xo, client.player.getX());
+		double pz = Mth.lerp(partialTick, client.player.zo, client.player.getZ());
+		EntityRadarRenderer.drawSelf(graphics, view, px, pz, client.player.getViewYRot(partialTick));
 	}
 
 	private void renderHeader(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {

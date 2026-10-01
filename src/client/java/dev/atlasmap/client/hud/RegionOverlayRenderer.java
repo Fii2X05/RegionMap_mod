@@ -6,14 +6,19 @@ import dev.atlasmap.region.Region;
 import dev.atlasmap.region.RegionManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.util.Mth;
 
+/**
+ * Garis batas region di minimap. Digambar di dalam matriks yang sama dengan tekstur peta
+ * (diputar + diskalakan), dengan satuan 1 unit = 1 blok, sehingga ikut berputar bersama peta.
+ */
 final class RegionOverlayRenderer {
 
 	private RegionOverlayRenderer() {
 	}
 
-	static void render(GuiGraphicsExtractor graphics, int mapX, int mapY, int size, int centerX, int centerY,
-	                    double uvScale) {
+	/** @param halfSize setengah sisi kotak minimap dalam piksel GUI */
+	static void render(GuiGraphicsExtractor graphics, RadarView view, double halfSize) {
 		RegionManager manager = ClientRegionState.manager();
 		if (manager == null || manager.all().isEmpty()) {
 			return;
@@ -24,12 +29,26 @@ final class RegionOverlayRenderer {
 		}
 
 		String dimension = client.level.dimension().identifier().toString();
-		int playerChunkX = client.player.blockPosition().getX() >> 4;
-		int playerChunkZ = client.player.blockPosition().getZ() >> 4;
+		double ppb = view.pixelsPerBlock();
 
-		int chunkRadius = (int) Math.ceil((size * uvScale) / 16.0) + 1;
-		int cellSize = (int) Math.max(1, 16 / uvScale);
-		int lineThickness = Math.max(1, cellSize / 6);
+		// Origin dibulatkan ke blok supaya koordinat yang digambar kecil (presisi float aman
+		// di koordinat jauh); sisa pecahannya ditangani lewat translate.
+		int originBlockX = Mth.floor(view.originX());
+		int originBlockZ = Mth.floor(view.originZ());
+		int originChunkX = originBlockX >> 4;
+		int originChunkZ = originBlockZ >> 4;
+
+		// Sudut kotak yang berotasi menjangkau halfSize*sqrt(2) piksel dari pusat.
+		int chunkRadius = (int) Math.ceil((halfSize * 1.42 / ppb) / 16.0) + 1;
+		// Ketebalan garis ~2 piksel, dinyatakan dalam blok.
+		int thickness = Math.min(8, Math.max(1, (int) Math.round(2.0 / ppb)));
+
+		var pose = graphics.pose();
+		pose.pushMatrix();
+		pose.translate((float) view.centerX(), (float) view.centerY());
+		pose.rotate((float) view.rotation());
+		pose.scale((float) ppb, (float) ppb);
+		pose.translate((float) -(view.originX() - originBlockX), (float) -(view.originZ() - originBlockZ));
 
 		for (Region region : manager.all()) {
 			if (!region.getDimension().equals(dimension)) {
@@ -38,39 +57,33 @@ final class RegionOverlayRenderer {
 			int alpha = Math.round(region.getOpacity() * 255f);
 			int color = (alpha << 24) | (region.getColorArgb() & 0x00FFFFFF);
 
-			for (int cx = playerChunkX - chunkRadius; cx <= playerChunkX + chunkRadius; cx++) {
-				for (int cz = playerChunkZ - chunkRadius; cz <= playerChunkZ + chunkRadius; cz++) {
-					ChunkPos2D here = new ChunkPos2D(cx, cz);
-					if (!region.containsChunk(here)) {
+			for (int cx = originChunkX - chunkRadius; cx <= originChunkX + chunkRadius; cx++) {
+				for (int cz = originChunkZ - chunkRadius; cz <= originChunkZ + chunkRadius; cz++) {
+					if (!region.containsChunk(new ChunkPos2D(cx, cz))) {
 						continue;
 					}
 
-					double worldMinX = (cx << 4) - client.player.getX();
-					double worldMinZ = (cz << 4) - client.player.getZ();
-					int screenMinX = centerX + (int) (worldMinX / uvScale);
-					int screenMinZ = centerY + (int) (worldMinZ / uvScale);
+					int x0 = (cx << 4) - originBlockX;
+					int z0 = (cz << 4) - originBlockZ;
+					int x1 = x0 + 16;
+					int z1 = z0 + 16;
 
-					boolean north = !region.containsChunk(new ChunkPos2D(cx, cz - 1));
-					boolean south = !region.containsChunk(new ChunkPos2D(cx, cz + 1));
-					boolean west = !region.containsChunk(new ChunkPos2D(cx - 1, cz));
-					boolean east = !region.containsChunk(new ChunkPos2D(cx + 1, cz));
-
-					if (north) {
-						graphics.fill(screenMinX, screenMinZ, screenMinX + cellSize, screenMinZ + lineThickness, color);
+					if (!region.containsChunk(new ChunkPos2D(cx, cz - 1))) {
+						graphics.fill(x0, z0, x1, z0 + thickness, color);
 					}
-					if (south) {
-						graphics.fill(screenMinX, screenMinZ + cellSize - lineThickness, screenMinX + cellSize,
-								screenMinZ + cellSize, color);
+					if (!region.containsChunk(new ChunkPos2D(cx, cz + 1))) {
+						graphics.fill(x0, z1 - thickness, x1, z1, color);
 					}
-					if (west) {
-						graphics.fill(screenMinX, screenMinZ, screenMinX + lineThickness, screenMinZ + cellSize, color);
+					if (!region.containsChunk(new ChunkPos2D(cx - 1, cz))) {
+						graphics.fill(x0, z0, x0 + thickness, z1, color);
 					}
-					if (east) {
-						graphics.fill(screenMinX + cellSize - lineThickness, screenMinZ, screenMinX + cellSize,
-								screenMinZ + cellSize, color);
+					if (!region.containsChunk(new ChunkPos2D(cx + 1, cz))) {
+						graphics.fill(x1 - thickness, z0, x1, z1, color);
 					}
 				}
 			}
 		}
+
+		pose.popMatrix();
 	}
 }
