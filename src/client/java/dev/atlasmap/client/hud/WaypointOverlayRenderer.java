@@ -11,7 +11,13 @@ final class WaypointOverlayRenderer {
 	private WaypointOverlayRenderer() {
 	}
 
-	static void render(GuiGraphicsExtractor graphics, int size, int centerX, int centerY, double uvScale) {
+	/**
+	 * Posisi dihitung lewat {@link RadarView} (ikut rotasi peta), tetapi ikon dan nama
+	 * digambar tanpa rotasi supaya teksnya tetap terbaca.
+	 *
+	 * @param halfSize setengah sisi kotak minimap dalam piksel GUI
+	 */
+	static void render(GuiGraphicsExtractor graphics, RadarView view, double halfSize) {
 		WaypointManager manager = ClientWaypointState.manager();
 		if (manager == null || manager.all().isEmpty()) {
 			return;
@@ -22,22 +28,22 @@ final class WaypointOverlayRenderer {
 		}
 
 		String dimension = client.level.dimension().identifier().toString();
-		double playerX = client.player.getX();
-		double playerZ = client.player.getZ();
-		double halfSpan = (size * uvScale) / 2.0;
 
 		for (Waypoint wp : manager.all()) {
 			if (!wp.isVisible() || !wp.getDimension().equals(dimension)) {
 				continue;
 			}
-			double dx = wp.getX() + 0.5 - playerX;
-			double dz = wp.getZ() + 0.5 - playerZ;
-			if (Math.abs(dx) > halfSpan || Math.abs(dz) > halfSpan) {
+
+			double wx = wp.getX() + 0.5;
+			double wz = wp.getZ() + 0.5;
+			double sxD = view.screenX(wx, wz);
+			double syD = view.screenY(wx, wz);
+			if (Math.abs(sxD - view.centerX()) > halfSize || Math.abs(syD - view.centerY()) > halfSize) {
 				continue;
 			}
 
-			int screenX = centerX + (int) (dx / uvScale);
-			int screenZ = centerY + (int) (dz / uvScale);
+			int screenX = (int) Math.round(sxD);
+			int screenZ = (int) Math.round(syD);
 
 			int dotRadius = 2;
 			graphics.outline(screenX - dotRadius - 1, screenZ - dotRadius - 1, dotRadius * 2 + 3, dotRadius * 2 + 3, 0xFF000000);
